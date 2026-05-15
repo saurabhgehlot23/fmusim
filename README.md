@@ -1,51 +1,49 @@
-clc; clear; close all;
+import numpy as np
+from scipy.interpolate import interp1d
 
-%% Parameters
-k = 27000;           % N/m
-beta_c = 0.002;      % m
-beta_e = 0.002;      % m
-F_fric = 20;         % N
+def resample_timeseries(time, data, fs_in, fs_out):
+    """
+    Resample a time series using linear interpolation.
 
-%% Generate motion
-t = linspace(0, 2*pi, 1000);
-delta = 0.02 * sin(t);          % +/- 20 mm
-delta_dot = 0.02 * cos(t);
+    Parameters
+    ----------
+    time : array_like
+        Original time vector.
+    data : array_like
+        Signal values corresponding to the time vector.
+    fs_in : float
+        Original sampling frequency (Hz).
+    fs_out : float
+        Desired output sampling frequency (Hz).
 
-%% Initialize force
-F = zeros(size(delta));
+    Returns
+    -------
+    time_out : ndarray
+        Resampled time vector.
+    data_out : ndarray
+        Resampled signal.
+    """
 
-%% Compute force with hysteresis
-for i = 1:length(delta)
-    if delta_dot(i) >= 0
-        % Extension (rebound)
-        F(i) = k * (delta(i) + beta_e) + F_fric;
-    else
-        % Compression (jounce)
-        F(i) = k * (delta(i) - beta_c) - F_fric;
-    end
-end
+    # Ensure numpy arrays
+    time = np.asarray(time)
+    data = np.asarray(data)
 
-%% Linear reference
-F_linear = k * delta;
+    # Total signal duration
+    duration = time[-1] - time[0]
 
-%% Plot Force vs Displacement
-figure;
-plot(delta*1000, F_linear, 'k--', 'LineWidth', 1.5); hold on;
-plot(delta*1000, F, 'r', 'LineWidth', 2);
+    # New time vector
+    dt_out = 1.0 / fs_out
+    time_out = np.arange(time[0], time[-1], dt_out)
 
-grid on;
-xlabel('Displacement (mm)');
-ylabel('Force (N)');
-title('Spring Hysteresis with Friction Offset');
-legend('Linear Spring', 'With Hysteresis');
+    # Linear interpolation function
+    interp_func = interp1d(
+        time,
+        data,
+        kind='linear',
+        fill_value="extrapolate"
+    )
 
-%% Plot Force vs Time
-figure;
-plot(t, F, 'b', 'LineWidth', 1.5); hold on;
-plot(t, F_linear, 'k--');
+    # Resampled data
+    data_out = interp_func(time_out)
 
-grid on;
-xlabel('Time');
-ylabel('Force (N)');
-title('Force vs Time');
-legend('Hysteresis Spring', 'Linear Spring');
+    return time_out, data_out
